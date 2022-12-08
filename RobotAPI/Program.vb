@@ -1,4 +1,6 @@
 Imports System.IO
+Imports System.Net.Security
+Imports System.Reflection
 Imports System.Text.RegularExpressions
 Imports Microsoft.VisualBasic.FileIO
 Imports RobotOM
@@ -45,9 +47,9 @@ Module Program
         Dim fso : fso = CreateObject("Scripting.FileSystemObject")
 
         ' this bool to false if you do not want member verification
-        MemberVer = False
+        MemberVer = True
 
-        Automatic = UserYesNo("Do you want to use the filename if no tag can be found? If you select No, a prompt will be given (Y/n)") 'Check if manual or automatic mode
+        Automatic = True 'UserYesNo("Do you want to use the filename if no tag can be found? If you select No, a prompt will be given (Y/n)") 'Check if manual or automatic mode
 
 
         'Move to correct folder
@@ -98,7 +100,7 @@ Module Program
                             Tag = Console.ReadLine()
                         End If
                     End If
-                    Console.Write(Tag & "\n")
+                    Console.Write(Tag & vbCrLf)
                     RobApp.Project.Open(File)
 
 
@@ -131,16 +133,14 @@ Module Program
                     Dim SU As RobotOM.RobotUnitData
                     SU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRESS)
                     SU.E = False
-                    SU.Name = "N"
-                    SU.Name2 = "mm2"
+                    SU.Name = "MPa"
                     SU.Precision = 2
 
                     ' the moments to kNm
                     Dim MU As RobotOM.RobotUnitData
                     MU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_MOMENT)
                     MU.E = False
-                    MU.Name = "kN"
-                    MU.Name2 = "m"
+                    MU.Name = "kNm"
                     MU.Precision = 2
 
                     ' the dimensions to mm
@@ -151,10 +151,10 @@ Module Program
                     DU.Precision = 0
 
                     'Actually  the variables and refresh units
-                    projPref.Units.I_UT_FORCE(FU)
-                    projPref.Units.I_UT_MOMENT(MU)
-                    projPref.Units.I_UT_STRUCTURE_DIMENSION(DU)
-                    projPref.Units.I_UT_STRESS(SU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_FORCE, FU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_MOMENT, MU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_STRUCTURE_DIMENSION, DU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
                     projPref.Units.Refresh()
 
                     Dim nTables As Long
@@ -167,23 +167,23 @@ Module Program
                         BarCol = RobApp.Project.Structure.Bars.GetAll
                         Dim CaseCol = RobApp.Project.Structure.Cases.GetAll
 
-                        Dim ratioName = csvPath + "Ratio" + Tag + ".csv"
+                        Dim ratioName = csvPath & "Ratio" & Tag & ".csv"
                         Dim ratioNum As IO.StreamWriter = FileSystem.OpenTextFileWriter(ratioName, True)
                         ratioNum.Write("Bar" & ";" & "Case" & ";" & "Ratio")
                         Debug.Print("Member verification")
                         For i = 1 To BarCol.Count
                             For j = 1 To CaseCol.Count
 
-                                Dim RDMServer As RobotOM.IRDimServer
+                                Dim RDMServer As IRDimServer
                                 RDMServer = RobApp.Kernel.GetExtension("RDimServer")
-                                RDMServer.Mode = RobotOM.IRDimServerMode.I_DSM_STEEL
-                                Dim RDmEngine As RobotOM.IRDimCalcEngine
+                                RDMServer.Mode = IRDimServerMode.I_DSM_STEEL
+                                Dim RDmEngine As IRDimCalcEngine
                                 RDmEngine = RDMServer.CalculEngine
 
                                 'the part below is optional, use it if you want to  calculation parameters by the code
 
-                                Dim RDmCalPar As RobotOM.IRDimCalcParam
-                                Dim RDmCalCnf As RobotOM.IRDimCalcConf
+                                Dim RDmCalPar As IRDimCalcParam
+                                Dim RDmCalCnf As IRDimCalcConf
 
                                 RDmCalPar = RDmEngine.GetCalcParam
                                 RDmCalCnf = RDmEngine.GetCalcConf
@@ -193,30 +193,29 @@ Module Program
                                 RdmStream.Clear()
 
                                 'Calculate results for all sections
-                                Dim aaa = BarCol.Get(i).Number
-                                RdmStream.WriteText(Str(BarCol.Get(i).Number)) ' member(s) selection
-                                Dim v = RDmCalPar.ObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF,
-                                                           RdmStream) 'members verification
-                                Dim v1 = RDmCalPar.LimitState(IRDimCalcParamLimitStateType.I_DCPLST_ULTIMATE,
-                                                                                      1) ' Limit State
+                                Dim aaa = BarCol.Get(i)
+                                Dim bbb = CaseCol.Get(j)
+                                RdmStream.WriteText(aaa.ToString) ' member(s) selection
+                                'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
+                                RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream)
+                                RDmCalPar.SetLimitState(IRDimCalcParamLimitStateType.I_DCPLST_ULTIMATE, 1) ' Limit State
                                 RdmStream.Clear()
-                                aaa = CaseCol.Get(j).Number
-                                RdmStream.WriteText(Str(CaseCol.Get(j).Number)) ' Load Case(s)
-                                Dim value = RDmCalPar.LoadsList(RdmStream)
-                                RDmEngine.CalcConf(RDmCalCnf)
-                                RDmEngine.CalcParam(RDmCalPar)
+                                RdmStream.WriteText(bbb.ToString) ' Load Case(s)
+                                RDmCalPar.GetLoadsList(RdmStream)
+                                RDmEngine.GetCalcConf()
+                                RDmEngine.GetCalcParam()
 
                                 'end of calclulation parameter tings
 
                                 RDmEngine.Solve(Nothing)
 
-                                Dim RDmDetRes As RobotOM.IRDimDetailedRes
-                                Dim RDMAllRes As RobotOM.IRDimAllRes
-                                If InStr(1, LCase(CaseCol.Get(j).Name), "sls") = 0 Then 'We do not want SLS, that does not work
+                                Dim RDmDetRes As IRDimDetailedRes
+                                Dim RDMAllRes As IRDimAllRes
+                                If InStr(1, LCase(bbb.ToString), "sls") = 0 Then 'We do not want SLS, that does not work
                                     'Debug.Print "About to write the results of bar: " & BarCol.Get(i).Number & " case: " & CaseCol.Get(j).Name
                                     RDMAllRes = RDmEngine.Results
-                                    RDmDetRes = RDMAllRes.Get(BarCol.Get(i).Number)
-                                    ratioNum.Write(BarCol.Get(i).Number & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio)
+                                    RDmDetRes = RDMAllRes.Get(aaa) 'Hier gaat het nu fout: System.InvalidCastException: 'Conversion from type 'IRobotBar' to type 'Integer' is not valid.'
+                                    ratioNum.Write(aaa.ToString & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio)
 
                                 End If
                                 'printing the results to csv
@@ -246,19 +245,19 @@ Module Program
                                 If tabname = "Envelope" Then
                                     'DoEvents
                                     Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                    t.Printable.SaveToFile(Fullpath, RobotOM.IRobotOutputFileFormat.I_OFF_TEXT)
+                                    t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
                                 End If
                             ElseIf Trim(FName) = "Loads" Then 'For loads, the table or text edition needs to be used, otherwise it'll likely be empty
                                 If tabname = "Text edition" Then
                                     'DoEvents
                                     Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                    t.Printable.SaveToFile(Fullpath, RobotOM.IRobotOutputFileFormat.I_OFF_TEXT)
+                                    t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
                                 End If
                             Else
                                 If tabname = "Values" Then 'Everything else just values
                                     'DoEvents
                                     Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                    t.Printable.SaveToFile(Fullpath, RobotOM.IRobotOutputFileFormat.I_OFF_TEXT)
+                                    t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
                                 End If
                             End If
                         Next j
@@ -312,26 +311,28 @@ Module Program
         Const TristateUseDefault = -2, TristateTrue = -1, TristateFalse = 0
         'open file
         Dim fso = CreateObject("Scripting.FileSystemObject")
-        Dim F = fso.OpenTextFile(strPath & "\" & strFileName, ForReading, True, TristateUseDefault)
+        Dim F_r = FileSystem.OpenTextFileReader(strPath & "\" & strFileName)
+        'Dim F = fso.OpenTextFile(strPath & "\" & strFileName, ForReading, True, TristateUseDefault)
         'read first line
-        Dim strLine = F.readline
+        Dim strLine = F_r.ReadLine()
         'check for delimiter
         If InStr(strLine, ";") <> 0 Then
             'read file content line by line
             strLine = ChangeLine(strLine, "")
             Dim StrFile = strLine
-            While Not F.AtEndOfStream ' while we are not finished reading through the file
-                strLine = F.readline
+            While Not F_r.EndOfStream ' while we are not finished reading through the file
+                strLine = F_r.ReadLine
                 strLine = ChangeLine(strLine, strFileName)
                 StrFile = StrFile & vbCrLf & strLine
             End While
-            F.Close
+            F_r.Close()
             'save file
-            F = fso.OpenTextFile(strPath & "\" & "#" & strFileName, ForWriting, True)
-            F.writeline(StrFile)
-            F.Close
+            'F = fso.OpenTextFile(strPath & "\" & "#" & strFileName, ForWriting, True)
+            Dim F_w = FileSystem.OpenTextFileWriter(strPath & "\" & "#" & strFileName, True)
+            F_w.WriteLine(StrFile)
+            F_w.Close()
         Else
-            F.Close
+            F_r.Close()
         End If
     End Function
 
@@ -383,10 +384,6 @@ Module Program
         Loop
     End Function
 
-
-    Function Contains(ByVal value As String) As Boolean
-
-    End Function
 End Module
 
 

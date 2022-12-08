@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RobotAPI": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
