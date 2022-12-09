@@ -195,7 +195,7 @@ Module Program
                                 'Calculate results for all sections
                                 Dim aaa = BarCol.Get(i) 'This is the start of the problems, here I need to get BarCol.Get(i).Number, but it cannot find Number, in any way shape or form, same for CaseCol & other properties
                                 Dim bbb = CaseCol.Get(j)
-                                Console.WriteLine(aaa)
+                                Console.WriteLine(BarCol.Name)
                                 RdmStream.WriteText(aaa) ' member(s) selection
                                 'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
                                 RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream)
