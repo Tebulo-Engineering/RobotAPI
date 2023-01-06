@@ -44,6 +44,9 @@ Module Program
         Dim RSelection As RobotSelection
         RSelection = RobApp.Project.Structure.Selections.Create(IRobotObjectType.I_OT_BAR)
         Dim BarCol As RobotBarCollection
+        Dim CaseCol As IRobotCaseCollection
+        Dim aaa As IRobotBar
+        Dim bbb As IRobotCase
         Dim fso : fso = CreateObject("Scripting.FileSystemObject")
 
         ' this bool to false if you do not want member verification
@@ -165,7 +168,7 @@ Module Program
 
                     If MemberVer = True Then
                         BarCol = RobApp.Project.Structure.Bars.GetAll
-                        Dim CaseCol = RobApp.Project.Structure.Cases.GetAll
+                        CaseCol = RobApp.Project.Structure.Cases.GetAll
 
                         Dim ratioName = csvPath & "Ratio" & Tag & ".csv"
                         Dim ratioNum As IO.StreamWriter = FileSystem.OpenTextFileWriter(ratioName, True)
@@ -193,15 +196,13 @@ Module Program
                                 RdmStream.Clear()
 
                                 'Calculate results for all sections
-                                Dim aaa = BarCol.Get(i) 'This is the start of the problems, here I need to get BarCol.Get(i).Number, but it cannot find Number, in any way shape or form, same for CaseCol & other properties
-                                Dim bbb = CaseCol.Get(j)
-                                Console.WriteLine(BarCol.Name)
-                                RdmStream.WriteText(aaa) ' member(s) selection
-                                'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
-                                RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream)
+                                aaa = BarCol.Get(i)
+                                bbb = CaseCol.Get(j)
+                                RdmStream.WriteText(aaa.Number.ToString) ' member(s) selection
+                                RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream) 'members verification
                                 RDmCalPar.SetLimitState(IRDimCalcParamLimitStateType.I_DCPLST_ULTIMATE, 1) ' Limit State
                                 RdmStream.Clear()
-                                RdmStream.WriteText(bbb.ToString) ' Load Case(s)
+                                RdmStream.WriteText(bbb.Number) ' Load Case(s)
                                 RDmCalPar.GetLoadsList(RdmStream)
                                 RDmEngine.GetCalcConf()
                                 RDmEngine.GetCalcParam()
@@ -209,14 +210,16 @@ Module Program
                                 'end of calclulation parameter tings
 
                                 RDmEngine.Solve(Nothing)
+                                Console.WriteLine("Got this far")
 
                                 Dim RDmDetRes As IRDimDetailedRes
                                 Dim RDMAllRes As IRDimAllRes
-                                If InStr(1, LCase(bbb.ToString), "sls") = 0 Then 'We do not want SLS, that does not work
-                                    'Debug.Print "About to write the results of bar: " & BarCol.Get(i).Number & " case: " & CaseCol.Get(j).Name
+                                Console.WriteLine("This far two")
+                                If InStr(1, LCase(bbb.Name), "sls") = 0 Then 'We do not want SLS, that does not work
+                                    Console.WriteLine("About to write the results of bar: " & aaa.Number & " case: " & bbb.Name & vbCrLf)
                                     RDMAllRes = RDmEngine.Results
-                                    RDmDetRes = RDMAllRes.Get(aaa) 'Hier gaat het nu fout: System.InvalidCastException: 'Conversion from type 'IRobotBar' to type 'Integer' is not valid.'
-                                    ratioNum.Write(aaa.ToString & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio)
+                                    RDmDetRes = RDMAllRes.Get(aaa.Number) 'Hier gaat het nu fout: System.InvalidCastException: 'Conversion from type 'IRobotBar' to type 'Integer' is not valid.'
+                                    ratioNum.Write(aaa.Number & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio)
 
                                 End If
                                 'printing the results to csv
