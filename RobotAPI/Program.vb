@@ -1,7 +1,9 @@
+Imports System.Data
 Imports System.IO
 Imports System.Net.Security
 Imports System.Reflection
 Imports System.Text.RegularExpressions
+Imports System.Threading
 Imports Microsoft.VisualBasic.FileIO
 Imports RobotOM
 
@@ -47,7 +49,7 @@ Module Program
         Dim fso : fso = CreateObject("Scripting.FileSystemObject")
 
         ' this bool to false if you do not want member verification
-        MemberVer = True
+        MemberVer = False
 
         Automatic = True 'UserYesNo("Do you want to use the filename if no tag can be found? If you select No, a prompt will be given (Y/n)") 'Check if manual or automatic mode
 
@@ -100,18 +102,30 @@ Module Program
                             Tag = Console.ReadLine()
                         End If
                     End If
-                    Console.Write(Tag & vbCrLf)
+                    Console.Write("Opening " & Tag & vbCrLf)
                     RobApp.Project.Open(File)
 
 
                     'Run the calculation if neccesary
                     If (RobApp.Project.Structure.Results.Available = False) Then
                         RobApp.Project.CalcEngine.Calculate()
-                        'RobApp.Project.CalcEngine.SaveResultsInExternalFile
+                        RobApp.Project.Save()
                     End If
 
+                    'RobApp.Project.ViewMngr.Refresh()
+                    'Dim rt As RobotTable
+                    'Dim nTable As Long
+                    'nTable = RobApp.Project.ViewMngr.TableCount
+                    'Console.Write($"Before closing tables, there are {nTable} tables" & vbCrLf)
+                    'If nTable > 1 Then
+                    '    For i = 1 To nTable
+                    '        rt = RobApp.Project.ViewMngr.GetView(i)
+                    '        rt.Window.SendMessage(16, 0, 0)
+                    '        rt = Nothing
+                    '    Next
+                    'End If
 
-
+                    'Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
                     'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_BARS, IRobotTableDataType.I_TDT_VALUES)
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_NODES, IRobotTableDataType.I_TDT_VALUES)
@@ -121,6 +135,7 @@ Module Program
                     t.AddColumn(179)
                     t.AddColumn(180)
                     t.AddColumn(182)
+                    'Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
 
                     ' the forces to kN
                     Dim FU As RobotOM.RobotUnitData
@@ -156,11 +171,12 @@ Module Program
                     projPref.Units.Set(IRobotUnitType.I_UT_STRUCTURE_DIMENSION, DU)
                     projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
                     projPref.Units.Refresh()
+                    Console.Write("Set units for " & Tag & vbCrLf)
 
                     Dim nTables As Long
                     'Count the tables
                     nTables = RobApp.Project.ViewMngr.TableCount
-
+                    Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
 
 
                     If MemberVer = True Then
@@ -228,8 +244,10 @@ Module Program
 
                     For i = 1 To nTables
 
+                        'Console.WriteLine($"Project is {RobApp.Project}, ViewMngr is {RobApp.Project.ViewMngr} and the Table is {RobApp.Project.ViewMngr.GetTable(i)} and the Recylce is {RobApp.Project.ViewMngr.CurrentLayout}" & vbCrLf)
                         tf = RobApp.Project.ViewMngr.GetTable(i) 'Read out the tables
                         FName = tf.Window.Caption
+                        'Console.Write($"Table number {i} is called {FName}" & vbCrLf)
                         Dim spacepos = InStr(1, FName, " ")
                         If spacepos <> 0 Then
                             FName = Left(FName, spacepos) 'remove leading spaces
