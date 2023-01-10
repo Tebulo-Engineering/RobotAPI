@@ -105,7 +105,7 @@ Module Program
                     Console.Write("Opening " & Tag & vbCrLf)
                     RobApp.Project.Open(File)
 
-
+                    RobApp.Project.ViewMngr.CurrentLayout = IRobotLayoutId.I_LI_MODEL_GEOMETRY
                     'Run the calculation if neccesary
                     If (RobApp.Project.Structure.Results.Available = False) Then
                         RobApp.Project.CalcEngine.Calculate()
