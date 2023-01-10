@@ -113,29 +113,19 @@ Module Program
                     End If
 
                     'RobApp.Project.ViewMngr.Refresh()
-                    'Dim rt As RobotTable
-                    'Dim nTable As Long
-                    'nTable = RobApp.Project.ViewMngr.TableCount
+                    'Dim nTable As Long = RobApp.Project.ViewMngr.TableCount
                     'Console.Write($"Before closing tables, there are {nTable} tables" & vbCrLf)
                     'If nTable > 1 Then
                     '    For i = 1 To nTable
-                    '        rt = RobApp.Project.ViewMngr.GetView(i)
-                    '        rt.Window.SendMessage(16, 0, 0)
-                    '        rt = Nothing
+                    '        Dim rt As RobotOM.IRobotView3 = RobApp.Project.ViewMngr.GetView(i)
+                    '        If RobApp.Project.ViewMngr.GetType(rt) = "Table" Then
+                    '            rt.Window.SendMessage(16, 0, 0)
+                    '            RobApp.CloseView(rt)
+                    '            rt = Nothing
+                    '        End If
                     '    Next
                     'End If
 
-                    'Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
-                    'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
-                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_BARS, IRobotTableDataType.I_TDT_VALUES)
-                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_NODES, IRobotTableDataType.I_TDT_VALUES)
-                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_LOADS, IRobotTableDataType.I_TDT_VALUES)
-                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_REACTIONS, IRobotTableDataType.I_TDT_VALUES)
-                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_STRESSES, IRobotTableDataType.I_TDT_VALUES)
-                    t.AddColumn(179)
-                    t.AddColumn(180)
-                    t.AddColumn(182)
-                    'Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
 
                     ' the forces to kN
                     Dim FU As RobotOM.RobotUnitData
@@ -145,17 +135,20 @@ Module Program
                     FU.Precision = 2
 
                     ' the stresses to N/mm2
-                    Dim SU As RobotOM.RobotUnitData
+                    Dim SU As RobotOM.RobotUnitComplexData
                     SU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRESS)
                     SU.E = False
-                    SU.Name = "MPa"
+                    SU.Name = "N"
+                    SU.Name2 = "mm"
                     SU.Precision = 2
 
                     ' the moments to kNm
-                    Dim MU As RobotOM.RobotUnitData
+                    Dim MU As RobotOM.RobotUnitComplexData
                     MU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_MOMENT)
+                    Console.Write($"Before changing units they are {MU.Name} and {MU.Name2}" & vbCrLf)
                     MU.E = False
-                    MU.Name = "kNm"
+                    MU.Name = "kN"
+                    MU.Name2 = "m"
                     MU.Precision = 2
 
                     ' the dimensions to mm
@@ -163,21 +156,49 @@ Module Program
                     DU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRUCTURE_DIMENSION)
                     DU.E = False
                     DU.Name = "mm"
-                    DU.Precision = 0
+                    DU.Precision = 2
 
                     'Actually  the variables and refresh units
+                    projPref.Units.Set(IRobotUnitType.I_UT_STRUCTURE_DIMENSION, DU)
                     projPref.Units.Set(IRobotUnitType.I_UT_FORCE, FU)
                     projPref.Units.Set(IRobotUnitType.I_UT_MOMENT, MU)
-                    projPref.Units.Set(IRobotUnitType.I_UT_STRUCTURE_DIMENSION, DU)
                     projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
                     projPref.Units.Refresh()
+                    RobApp.Project.ViewMngr.Refresh()
+                    projPref.Units.Refresh()
+                    Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name}{MU.Name2} and {SU.Name}/{SU.Name2}" & vbCrLf)
                     Console.Write("Set units for " & Tag & vbCrLf)
 
                     Dim nTables As Long
                     'Count the tables
                     nTables = RobApp.Project.ViewMngr.TableCount
-                    Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
+                    'Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
 
+                    Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
+                    'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_BARS, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_NODES, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_LOADS, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_REACTIONS, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_STRESSES, IRobotTableDataType.I_TDT_VALUES)
+                    t.AddColumn(179)
+                    t.AddColumn(180)
+                    t.AddColumn(182)
+                    Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
+
+                    Dim ViewMngr As IRobotViewMngr
+                    Dim ActiveView As RobotView
+                    Dim CaseSel As RobotSelection
+                    Dim ActiveViewNumber As Integer
+                    ViewMngr = RobApp.Project.ViewMngr
+                    For k = 1 To ViewMngr.ViewCount
+                        If ViewMngr.GetView(k).Window.IsActive = -1 Then ActiveViewNumber = k : Exit For
+                    Next k
+                    ActiveView = ViewMngr.GetView(ActiveViewNumber)
+                    CaseSel = ActiveView.Selection.Get(IRobotObjectType.I_OT_CASE)
+                    CaseSel.FromText("Simple Cases")
+                    ViewMngr.Refresh()
+                    Console.WriteLine("Selected Simple Cases" & vbCrLf)
 
                     If MemberVer = True Then
                         BarCol = RobApp.Project.Structure.Bars.GetAll
