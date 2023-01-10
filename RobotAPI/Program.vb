@@ -112,20 +112,20 @@ Module Program
                         RobApp.Project.Save()
                     End If
 
-                    'RobApp.Project.ViewMngr.Refresh()
-                    'Dim rt As RobotTable
-                    'Dim nTable As Long
-                    'nTable = RobApp.Project.ViewMngr.TableCount
-                    'Console.Write($"Before closing tables, there are {nTable} tables" & vbCrLf)
-                    'If nTable > 1 Then
-                    '    For i = 1 To nTable
-                    '        rt = RobApp.Project.ViewMngr.GetView(i)
-                    '        rt.Window.SendMessage(16, 0, 0)
-                    '        rt = Nothing
-                    '    Next
-                    'End If
+                    RobApp.Project.ViewMngr.Refresh()
+                    Dim rt As RobotTable
+                    Dim nTable As Long
+                    nTable = RobApp.Project.ViewMngr.TableCount
+                    Console.Write($"Before closing tables, there are {nTable} tables" & vbCrLf)
+                    If nTable > 1 Then
+                        For i = 1 To nTable
+                            rt = RobApp.Project.ViewMngr.GetView(i)
+                            rt.Window.SendMessage(16, 0, 0)
+                            rt = Nothing
+                        Next
+                    End If
 
-                    'Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
+                    Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
                     'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_BARS, IRobotTableDataType.I_TDT_VALUES)
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_NODES, IRobotTableDataType.I_TDT_VALUES)
@@ -135,7 +135,7 @@ Module Program
                     t.AddColumn(179)
                     t.AddColumn(180)
                     t.AddColumn(182)
-                    'Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
+                    Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
 
                     ' the forces to kN
                     Dim FU As RobotOM.RobotUnitData
