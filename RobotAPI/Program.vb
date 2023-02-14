@@ -186,19 +186,19 @@ Module Program
                     t.AddColumn(182)
                     Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
 
-                    Dim ViewMngr As IRobotViewMngr
-                    Dim ActiveView As RobotView
-                    Dim CaseSel As RobotSelection
-                    Dim ActiveViewNumber As Integer
-                    ViewMngr = RobApp.Project.ViewMngr
-                    For k = 1 To ViewMngr.ViewCount
-                        If ViewMngr.GetView(k).Window.IsActive = -1 Then ActiveViewNumber = k : Exit For
-                    Next k
-                    ActiveView = ViewMngr.GetView(ActiveViewNumber)
-                    CaseSel = ActiveView.Selection.Get(IRobotObjectType.I_OT_CASE)
-                    CaseSel.FromText("Simple Cases")
-                    ViewMngr.Refresh()
-                    Console.WriteLine("Selected Simple Cases" & vbCrLf)
+                    'Dim ViewMngr As IRobotViewMngr
+                    'Dim ActiveView As RobotView
+                    'Dim CaseSel As RobotSelection
+                    'Dim ActiveViewNumber As Long
+                    'ViewMngr = RobApp.Project.ViewMngr
+                    'For k = 1 To ViewMngr.ViewCount
+                    '    If ViewMngr.GetView(k).Window.IsActive = -1 Then ActiveViewNumber = k : Exit For
+                    'Next k
+                    'ActiveView = ViewMngr.GetView(ActiveViewNumber)
+                    'CaseSel = ActiveView.Selection.Get(IRobotObjectType.I_OT_CASE)
+                    'CaseSel.FromText("Simple Cases")
+                    'ViewMngr.Refresh()
+                    'Console.WriteLine("Selected Simple Cases" & vbCrLf)
 
                     If MemberVer = True Then
                         BarCol = RobApp.Project.Structure.Bars.GetAll
