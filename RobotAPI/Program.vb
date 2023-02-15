@@ -6,6 +6,7 @@ Imports System.Text.RegularExpressions
 Imports System.Threading
 Imports Microsoft.VisualBasic.FileIO
 Imports RobotOM
+Imports RobotOM.IRobotSelectionType
 
 Module Program
 
@@ -169,10 +170,7 @@ Module Program
                     Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name}{MU.Name2} and {SU.Name}/{SU.Name2}" & vbCrLf)
                     Console.Write("Set units for " & Tag & vbCrLf)
 
-                    Dim nTables As Long
-                    'Count the tables
-                    nTables = RobApp.Project.ViewMngr.TableCount
-                    'Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
+
 
                     Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
                     'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
@@ -263,6 +261,11 @@ Module Program
                         Debug.Print("Member verification finished")
                     End If
 
+                    Dim nTables As Long
+                    'Count the tables
+                    nTables = RobApp.Project.ViewMngr.TableCount
+                    'Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
+                    Dim tFilter As New Regex(":([0-9]+)")
                     For i = 1 To nTables
 
                         'Console.WriteLine($"Project is {RobApp.Project}, ViewMngr is {RobApp.Project.ViewMngr} and the Table is {RobApp.Project.ViewMngr.GetTable(i)} and the Recylce is {RobApp.Project.ViewMngr.CurrentLayout}" & vbCrLf)
@@ -281,23 +284,32 @@ Module Program
                             t = tf.Get(j)
                             tf.Current = j
                             Dim tabname = tf.GetName(j)
-                            If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
-                                If tabname = "Envelope" Then
-                                    'DoEvents
-                                    Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                    t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
-                                End If
-                            ElseIf Trim(FName) = "Loads" Then 'For loads, the table or text edition needs to be used, otherwise it'll likely be empty
-                                If tabname = "Text edition" Then
-                                    'DoEvents
-                                    Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                    t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
-                                End If
+                            Dim match As Match = tFilter.Match(FName)
+                            If match.Success Then
+                                Console.WriteLine($"Table duplicate ({FName}) not printed")
                             Else
-                                If tabname = "Values" Then 'Everything else just values
-                                    'DoEvents
-                                    Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                    t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                                If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
+                                    t.Select(I_ST_CASE, "1to8 72to74")
+                                    If tabname = "Envelope" Then
+                                        'DoEvents
+                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                                    End If
+                                ElseIf Trim(FName) = "Loads" Then 'For loads, the table or text edition needs to be used, otherwise it'll likely be empty
+                                    If tabname = "Text edition" Then
+                                        'DoEvents
+                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                                    End If
+                                Else
+                                    If tabname = "Values" Then 'Everything else just values
+                                        'DoEvents
+                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                                    End If
                                 End If
                             End If
                         Next j
