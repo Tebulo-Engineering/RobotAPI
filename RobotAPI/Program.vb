@@ -2,6 +2,7 @@ Imports System.Data
 Imports System.IO
 Imports System.Net.Security
 Imports System.Reflection
+Imports System.Text.Json
 Imports System.Text.RegularExpressions
 Imports System.Threading
 Imports Microsoft.VisualBasic.FileIO
@@ -18,6 +19,7 @@ Module Program
     Sub DumpTables()
 
         Dim RobApp As New RobotApplication
+        Dim RobModel As IRobotStructure = RobApp.Project.Structure
         Dim projPref As RobotProjectPreferences
         projPref = RobApp.Project.Preferences
         Dim t As RobotTable
@@ -131,25 +133,27 @@ Module Program
                     ' the forces to kN
                     Dim FU As RobotOM.RobotUnitData
                     FU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_FORCE)
+                    Console.Write($"Before changing units, Force is in {FU.Name}" & vbCrLf)
                     FU.E = False
                     FU.Name = "kN"
                     FU.Precision = 2
 
-                    ' the stresses to N/mm2
+                    ' the stresses to MPa
                     Dim SU As RobotOM.RobotUnitComplexData
                     SU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRESS)
+                    Console.Write($"Before changing units, Stress is {SU.Name} and {SU.Name2}" & vbCrLf)
                     SU.E = False
-                    SU.Name = "N"
-                    SU.Name2 = "mm"
+                    SU.Name = "MPa"
+                    'SU.Name2 = "mm2"
                     SU.Precision = 2
 
                     ' the moments to kNm
                     Dim MU As RobotOM.RobotUnitComplexData
                     MU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_MOMENT)
-                    Console.Write($"Before changing units they are {MU.Name} and {MU.Name2}" & vbCrLf)
+                    Console.Write($"Before changing units, Moment is {MU.Name} and {MU.Name2}" & vbCrLf)
                     MU.E = False
-                    MU.Name = "kN"
-                    MU.Name2 = "m"
+                    MU.Name = "kNm"
+                    'MU.Name2 = "m"
                     MU.Precision = 2
 
                     ' the dimensions to mm
@@ -167,7 +171,7 @@ Module Program
                     projPref.Units.Refresh()
                     RobApp.Project.ViewMngr.Refresh()
                     projPref.Units.Refresh()
-                    Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name}{MU.Name2} and {SU.Name}/{SU.Name2}" & vbCrLf)
+                    Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name} and {SU.Name}/{SU.Name2}" & vbCrLf)
                     Console.Write("Set units for " & Tag & vbCrLf)
 
 
