@@ -152,8 +152,8 @@ Module Program
                     MU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_MOMENT)
                     Console.Write($"Before changing units, Moment is {MU.Name} and {MU.Name2}" & vbCrLf)
                     MU.E = False
-                    MU.Name = "kNm"
-                    'MU.Name2 = "m"
+                    MU.Name = "kN"
+                    MU.Name2 = "m"
                     MU.Precision = 2
 
                     ' the dimensions to mm
@@ -293,7 +293,7 @@ Module Program
                                 Console.WriteLine($"Table duplicate ({FName}) not printed")
                             Else
                                 If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
-                                    t.Select(I_ST_CASE, "1to8 72to74")
+                                    t.Select(I_ST_CASE, "1to7 10to18 21to23 30to33")
                                     If tabname = "Envelope" Then
                                         'DoEvents
                                         Fullpath = csvPath + Trim(FName) + Tag + ".csv"
