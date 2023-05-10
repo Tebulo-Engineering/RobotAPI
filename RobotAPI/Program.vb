@@ -294,7 +294,7 @@ Module Program
                             Else
                                 If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
                                     t.Select(I_ST_CASE, "1to7 10to18 21to23 30to33")
-                                    If tabname = "Envelope" Then
+                                    If tabname = "Values" Then
                                         'DoEvents
                                         Fullpath = csvPath + Trim(FName) + Tag + ".csv"
                                         t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
