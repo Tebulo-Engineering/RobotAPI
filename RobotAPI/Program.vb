@@ -2,6 +2,7 @@ Imports System.Data
 Imports System.IO
 Imports System.Net.Security
 Imports System.Reflection
+Imports System.Runtime.CompilerServices
 Imports System.Text.Json
 Imports System.Text.RegularExpressions
 Imports System.Threading
@@ -24,8 +25,9 @@ Module Program
         projPref = RobApp.Project.Preferences
         Dim t As RobotTable
         Dim tf As RobotTableFrame
-        Dim path As String
+        Dim pathcwd As String
         Dim csvPath As String
+        Dim oldFolderPath As String
         Dim rtdfolder As Object
         Dim rtdFiles As Array
         Dim strFiles As New List(Of Object)
@@ -46,38 +48,101 @@ Module Program
         Dim Tag3 As Object
         Dim MemberVer As Boolean
         Dim Question As Boolean
+        Dim BatchMove As Boolean
+        Dim Archive As Boolean
         Dim RSelection As RobotSelection
         RSelection = RobApp.Project.Structure.Selections.Create(IRobotObjectType.I_OT_BAR)
         Dim BarCol As RobotBarCollection
         Dim fso : fso = CreateObject("Scripting.FileSystemObject")
+        Dim RatioFailMessage As String
+        Dim RatioFailLog() As String = Array.Empty(Of String)()
 
-        ' this bool to false if you do not want member verification
-        MemberVer = False
 
-        Automatic = True 'UserYesNo("Do you want to use the filename if no tag can be found? If you select No, a prompt will be given (Y/n)") 'Check if manual or automatic mode
+        MemberVer = UserYesNo("Do you want member verification results? (will take longer)") ' this bool to false if you do not want member verification
+
+        Automatic = UserYesNo("Do you want to use the filename if no tag can be found? If you select No, a prompt will be given (Y/n)") 'Check if manual or automatic mode
+
+        BatchMove = UserYesNo("Do you want to batch process? No will prompt for tags (Y/n)") 'Checks weather to do all files in the dir, or specific tags
+
+        Archive = UserYesNo("Do you want to move all existing csv files to a archive directory? If plan to process any tags that have a csv file in the main dir, this is recommended")
+        'Checks to move all the csv files. If they're already there, they get written into. however, if the program crashes during operation, saying no to this will process the files to #files
 
 
         'Move to correct folder
         get_proj()
         'Get the absolute path
-        path = FileSystem.CurrentDirectory
-        csvPath = path + "/csv/"
+        pathcwd = FileSystem.CurrentDirectory
+        csvPath = pathcwd + "/csv/"
 
 
         Dim rtdPath
-        rtdPath = path
-        rtdFiles = Directory.GetFiles(rtdPath)
+        rtdPath = pathcwd
+        rtdFiles = Directory.GetFiles(rtdPath, "*.rtd")
+
+        'Deleting all the .rtx files
+        'rtx files are modification protection. If they're present the script crashes.
+        'If someone is working in a file, do not delete the rtx file
+        'This deletes ALL rtx files, even if you only want to process a few tags, maybe those ones are not even locked
+        Dim filesToDelete As String() = Directory.GetFiles(pathcwd, "*.rtx")
+        Dim DeleteYesNo As Boolean
+        If filesToDelete.Length > 0 Then
+            DeleteYesNo = UserYesNo("Found .rtx files, delete protections? ONLY DO THIS IF NO FILES ARE IN USE")
+        End If
+        If DeleteYesNo Then
+            For Each item In filesToDelete
+                Try
+                    System.IO.File.Delete(item)
+                    Console.WriteLine($"Deleted file: {item}")
+                Catch ex As Exception
+                    Console.WriteLine($"Failed to delete file: {item}. Reason: {ex.Message}")
+                End Try
+            Next
+        End If
 
         'Create a seperate folder for csv files if it does not yet exist
         If Not Directory.Exists(csvPath) Then
             'doesn't exist, so create the folder
             Directory.CreateDirectory(csvPath)
+        Else
+            ' Create a folder with a timestamp
+            Dim timestamp As String = DateTime.Now.ToString("yyyyMMdd_HHmmss")
+            Dim oldFolderPathWithTimestamp As String = Path.Combine(csvPath, "archived_on_" & timestamp)
+            Directory.CreateDirectory(oldFolderPathWithTimestamp)
+
+            ' Get the files in the csvPath folder
+            Dim files As String() = Directory.GetFiles(csvPath)
+
+            ' Try to move each file to the timestamped folder
+            If Archive Then
+                Try
+                    For Each filePath As String In files
+                        Dim currentFileName As String = Path.GetFileName(filePath)
+                        Dim destinationPath As String = Path.Combine(oldFolderPathWithTimestamp, currentFileName)
+                        File.Move(filePath, destinationPath)
+                    Next
+                Catch
+                    Console.WriteLine("Failed to archive old csv files, one might be open. If you contine it might not produce correct results")
+                    Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
+                    Console.ReadLine()
+                End Try
+
+            End If
         End If
 
+
+        Dim TagsList As String() = Array.Empty(Of String)()
         Dim Tagx As New Regex("\d{4}\-\d{2}") 'regex of 4 numbers "-" and two numbers
-        'RegExTag.Global = True 'Check for more than one instance
-        'RegExTag.IgnoreCase = True
         'Loop through each file
+
+        If Not BatchMove Then
+            'If only certain tags need to be processed, this user input requests and seperates them
+            Dim TagsInput As String
+            Console.WriteLine("Please input the tags you wish to process, seperated by a comma (xxxx-xx)")
+            TagsInput = Console.ReadLine()
+            TagsList = TagsInput.Split(","c)
+            Console.WriteLine("Tags: " & TagsInput.Trim())
+        End If
+
         For Each File In rtdFiles 'Where the magic happens, open every robot file and do the whole loop
             If LCase(Right(File, 4)) = ".rtd" Then
                 If LCase(Left(File, 5)) <> "robot" Then
@@ -105,30 +170,36 @@ Module Program
                             Tag = Console.ReadLine()
                         End If
                     End If
+
+                    'The easiest way to select only certain tags.
+                    'The use of GoTo is frowned upon and considered bad programming, sue me
+                    'It skips to the end of the "for each", and therefore goes to the next tag, if it doesn't trigger it continues as normal
+                    If Not BatchMove Then
+                        If Not TagsList.Contains(Tag) Then
+                            GoTo SkipTag
+                        End If
+                    End If
+
                     Console.Write("Opening " & Tag & vbCrLf)
                     RobApp.Project.Open(File)
 
                     RobApp.Project.ViewMngr.CurrentLayout = IRobotLayoutId.I_LI_MODEL_GEOMETRY
                     'Run the calculation if neccesary
                     If (RobApp.Project.Structure.Results.Available = False) Then
-                        RobApp.Project.CalcEngine.Calculate()
-                        RobApp.Project.Save()
+                        Try
+                            Console.WriteLine($"Calculating {Tag}")
+                            RobApp.Project.CalcEngine.Calculate()
+                            RobApp.Project.Save()
+                        Catch
+                            RatioFailMessage = $"Failed to calculate results for {Tag}, please run calculation and try again..." & vbCrLf
+                            Console.WriteLine(RatioFailMessage)
+                            Console.WriteLine($"Skipping {Tag}...")
+                            ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
+                            RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
+                            GoTo SkipTag
+                        End Try
+
                     End If
-
-                    'RobApp.Project.ViewMngr.Refresh()
-                    'Dim nTable As Long = RobApp.Project.ViewMngr.TableCount
-                    'Console.Write($"Before closing tables, there are {nTable} tables" & vbCrLf)
-                    'If nTable > 1 Then
-                    '    For i = 1 To nTable
-                    '        Dim rt As RobotOM.IRobotView3 = RobApp.Project.ViewMngr.GetView(i)
-                    '        If RobApp.Project.ViewMngr.GetType(rt) = "Table" Then
-                    '            rt.Window.SendMessage(16, 0, 0)
-                    '            RobApp.CloseView(rt)
-                    '            rt = Nothing
-                    '        End If
-                    '    Next
-                    'End If
-
 
                     ' the forces to kN
                     Dim FU As RobotOM.RobotUnitData
@@ -169,8 +240,6 @@ Module Program
                     projPref.Units.Set(IRobotUnitType.I_UT_MOMENT, MU)
                     projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
                     projPref.Units.Refresh()
-                    RobApp.Project.ViewMngr.Refresh()
-                    projPref.Units.Refresh()
                     Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name} and {SU.Name}/{SU.Name2}" & vbCrLf)
                     Console.Write("Set units for " & Tag & vbCrLf)
 
@@ -183,6 +252,7 @@ Module Program
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_LOADS, IRobotTableDataType.I_TDT_VALUES)
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_REACTIONS, IRobotTableDataType.I_TDT_VALUES)
                     t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_STRESSES, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_PROPERTIES, IRobotTableDataType.I_TDT_MEMBERS)
                     t.AddColumn(179)
                     t.AddColumn(180)
                     t.AddColumn(182)
@@ -208,61 +278,70 @@ Module Program
 
                         Dim ratioName = csvPath & "Ratio" & Tag & ".csv"
                         Dim ratioNum As IO.StreamWriter = FileSystem.OpenTextFileWriter(ratioName, True)
-                        ratioNum.Write("Bar" & ";" & "Case" & ";" & "Ratio")
+                        ratioNum.Write("Member" & ";" & "Case" & ";" & "Ratio" & "Results" & vbCrLf)
                         Debug.Print("Member verification")
-                        For i = 1 To BarCol.Count
-                            For j = 1 To CaseCol.Count
+                        Dim RDMServer As IRDimServer
+                        RDMServer = RobApp.Kernel.GetExtension("RDimServer")
+                        RDMServer.Mode = IRDimServerMode.I_DSM_STEEL
+                        Dim RDmEngine As IRDimCalcEngine
+                        RDmEngine = RDMServer.CalculEngine
 
-                                Dim RDMServer As IRDimServer
-                                RDMServer = RobApp.Kernel.GetExtension("RDimServer")
-                                RDMServer.Mode = IRDimServerMode.I_DSM_STEEL
-                                Dim RDmEngine As IRDimCalcEngine
-                                RDmEngine = RDMServer.CalculEngine
+                        'the part below is optional, use it if you want to  calculation parameters by the code
 
-                                'the part below is optional, use it if you want to  calculation parameters by the code
+                        Dim RDmCalPar As IRDimCalcParam
+                        Dim RDmCalCnf As IRDimCalcConf
 
-                                Dim RDmCalPar As IRDimCalcParam
-                                Dim RDmCalCnf As IRDimCalcConf
+                        RDmCalPar = RDmEngine.GetCalcParam
+                        RDmCalCnf = RDmEngine.GetCalcConf
 
-                                RDmCalPar = RDmEngine.GetCalcParam
-                                RDmCalCnf = RDmEngine.GetCalcConf
+                        Dim RdmStream As IRDimStream 'Data stream for ting parameters
+                        RdmStream = RDMServer.Connection.GetStream
+                        RdmStream.Clear()
 
-                                Dim RdmStream As IRDimStream 'Data stream for ting parameters
-                                RdmStream = RDMServer.Connection.GetStream
-                                RdmStream.Clear()
+                        'Calculate results for all sections
 
-                                'Calculate results for all sections
-                                Dim aaa = BarCol.Get(i) 'This is the start of the problems, here I need to get BarCol.Get(i).Number, but it cannot find Number, in any way shape or form, same for CaseCol & other properties
-                                Dim bbb = CaseCol.Get(j)
-                                Console.WriteLine(BarCol.Name)
-                                RdmStream.WriteText(aaa) ' member(s) selection
-                                'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
-                                RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream)
-                                RDmCalPar.SetLimitState(IRDimCalcParamLimitStateType.I_DCPLST_ULTIMATE, 1) ' Limit State
-                                RdmStream.Clear()
-                                RdmStream.WriteText(bbb.ToString) ' Load Case(s)
-                                RDmCalPar.GetLoadsList(RdmStream)
-                                RDmEngine.GetCalcConf()
-                                RDmEngine.GetCalcParam()
+                        RdmStream.WriteText("all") ' member(s) selection
+                        'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
+                        RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream)
+                        RDmCalPar.SetLimitState(IRDimCalcParamLimitStateType.I_DCPLST_ULTIMATE, 1) ' Limit State
+                        RdmStream.Clear()
+                        RDmEngine.GetCalcConf()
+                        RDmEngine.GetCalcParam()
 
-                                'end of calclulation parameter tings
+                        'end of calclulation parameter tings
 
-                                RDmEngine.Solve(Nothing)
+                        RDmEngine.Solve(Nothing)
 
-                                Dim RDmDetRes As IRDimDetailedRes
-                                Dim RDMAllRes As IRDimAllRes
-                                If InStr(1, LCase(bbb.ToString), "sls") = 0 Then 'We do not want SLS, that does not work
-                                    'Debug.Print "About to write the results of bar: " & BarCol.Get(i).Number & " case: " & CaseCol.Get(j).Name
-                                    RDMAllRes = RDmEngine.Results
-                                    RDmDetRes = RDMAllRes.Get(aaa) 'Hier gaat het nu fout: System.InvalidCastException: 'Conversion from type 'IRobotBar' to type 'Integer' is not valid.'
-                                    ratioNum.Write(aaa.ToString & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio)
+                        Dim RDmDetRes As IRDimDetailedRes
+                        Dim RDMAllRes As IRDimAllRes
+                        Dim BarCol_i As RobotBar
 
-                                End If
+
+
+                        Try
+                            For i = 1 To BarCol.Count
+
+
+                                BarCol_i = BarCol.Get(i)
+                                RDMAllRes = RDmEngine.Results
+                                RDmDetRes = RDMAllRes.Get(BarCol_i.Number)
+                                ratioNum.Write(BarCol_i.Number & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio & vbCrLf)
+
                                 'printing the results to csv
-                            Next j
-                        Next i
-                        ratioNum.Close()
-                        Debug.Print("Member verification finished")
+                            Next i
+                            ratioNum.Close()
+                            Debug.Print("Member verification finished")
+                        Catch
+
+                            RatioFailMessage = "The member verification failed on tag " & Tag.ToString & ", please run the Robot member verification again, and save the results." & vbCrLf
+                            Console.WriteLine(RatioFailMessage)
+                            'Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
+                            'Console.ReadLine()
+                            ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
+                            RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
+                        End Try
+
+
                     End If
 
                     Dim nTables As Long
@@ -290,7 +369,7 @@ Module Program
                             Dim tabname = tf.GetName(j)
                             Dim match As Match = tFilter.Match(FName)
                             If match.Success Then
-                                Console.WriteLine($"Table duplicate ({FName}) not printed")
+                                'Console.WriteLine($"Table duplicate ({FName}) not printed")
                             Else
                                 If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
                                     t.Select(I_ST_CASE, "1to7 10to18 21to23 30to33")
@@ -307,8 +386,15 @@ Module Program
                                         t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
                                         Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
                                     End If
+                                ElseIf Trim(FName) = "Properties" Then 'Get the properties for each file, so they can be combined later
+                                    If tabname = "Members" Then
+                                        'DoEvents
+                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                                    End If
                                 Else
-                                    If tabname = "Values" Then 'Everything else just values
+                                        If tabname = "Values" Then 'Everything else just values
                                         'DoEvents
                                         Fullpath = csvPath + Trim(FName) + Tag + ".csv"
                                         t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
@@ -321,6 +407,7 @@ Module Program
                     RobApp.Project.Close()
                 End If
             End If
+SkipTag:
         Next
 
         RobApp = Nothing
@@ -341,6 +428,11 @@ Module Program
         Next
 
         Console.WriteLine("Dumping finished")
+        For Each message In RatioFailLog
+            Console.WriteLine(message)
+        Next
+        Console.WriteLine("Press Enter to continue")
+        Console.ReadLine()
 
 
     End Sub
@@ -355,6 +447,9 @@ Module Program
             'edit line content, replacing the decimal and column seperators, so latex can understand it
             strLine = Replace(strLine, ",", ".")
             strLine = Replace(strLine, ";", ",")
+        End If
+        If Left(Trim(strLine), 5) = "Point" Then
+            strLine = Right(Trim(strLine), Len(Trim(strLine)) - 5)
         End If
         If Left(Trim(strLine), 1) = "," Then
             strLine = Right(Trim(strLine), Len(Trim(strLine)) - 1)
