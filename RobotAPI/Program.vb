@@ -99,6 +99,23 @@ Module Program
             Next
         End If
 
+        'Deleting all the .rtx files
+        Dim filesToDelete As String() = Directory.GetFiles(pathcwd, "*.rtx")
+        Dim DeleteYesNo As Boolean
+        If filesToDelete.Length > 0 Then
+            DeleteYesNo = UserYesNo("Found .rtx files, delete protections? ONLY DO THIS IF NO FILES ARE IN USE")
+        End If
+        If DeleteYesNo Then
+            For Each item In filesToDelete
+                Try
+                    System.IO.File.Delete(item)
+                    Console.WriteLine($"Deleted file: {item}")
+                Catch ex As Exception
+                    Console.WriteLine($"Failed to delete file: {item}. Reason: {ex.Message}")
+                End Try
+            Next
+        End If
+
         'Create a seperate folder for csv files if it does not yet exist
         If Not Directory.Exists(csvPath) Then
             'doesn't exist, so create the folder
@@ -133,6 +150,16 @@ Module Program
         Dim TagsList As String() = Array.Empty(Of String)()
         Dim Tagx As New Regex("\d{4}\-\d{2}") 'regex of 4 numbers "-" and two numbers
         'Loop through each file
+
+        If Not BatchMove Then
+            'If only certain tags need to be processed, this user input requests and seperates them
+            Dim TagsInput As String
+            Console.WriteLine("Please input the tags you wish to process, seperated by a comma (xxxx-xx)")
+            TagsInput = Console.ReadLine()
+            TagsList = TagsInput.Split(","c)
+            Console.WriteLine("Tags: " & TagsInput.Trim())
+        End If
+
 
         If Not BatchMove Then
             'If only certain tags need to be processed, this user input requests and seperates them
@@ -302,16 +329,6 @@ Module Program
 
                         RdmStream.WriteText("all") ' member(s) selection
                         'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
-                        RDmCalPar.SetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF, RdmStream)
-                        RDmCalPar.SetLimitState(IRDimCalcParamLimitStateType.I_DCPLST_ULTIMATE, 1) ' Limit State
-                        RdmStream.Clear()
-                        RDmEngine.GetCalcConf()
-                        RDmEngine.GetCalcParam()
-
-                        'end of calclulation parameter tings
-
-                        RDmEngine.Solve(Nothing)
-
                         Dim RDmDetRes As IRDimDetailedRes
                         Dim RDMAllRes As IRDimAllRes
                         Dim BarCol_i As RobotBar
@@ -327,18 +344,18 @@ Module Program
                                 RDmDetRes = RDMAllRes.Get(BarCol_i.Number)
                                 ratioNum.Write(BarCol_i.Number & ";" & RDmDetRes.GovernCaseName & ";" & RDmDetRes.Ratio & vbCrLf)
 
-                                'printing the results to csv
-                            Next i
-                            ratioNum.Close()
-                            Debug.Print("Member verification finished")
-                        Catch
+                                RDmEngine.Solve(Nothing)
 
-                            RatioFailMessage = "The member verification failed on tag " & Tag.ToString & ", please run the Robot member verification again, and save the results." & vbCrLf
-                            Console.WriteLine(RatioFailMessage)
-                            'Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
-                            'Console.ReadLine()
-                            ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
-                            RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
+                                Dim RDmDetRes As IRDimDetailedRes
+                                Dim RDMAllRes As IRDimAllRes
+                                If InStr(1, LCase(bbb.ToString), "sls") = 0 Then 'We do not want SLS, that does not work
+                                    'Debug.Print "About to write the results of bar: " & BarCol.Get(i).Number & " case: " & CaseCol.Get(j).Name
+                                    RDMAllRes = RDmEngine.Results
+                                    Console.WriteLine(RatioFailMessage)
+                                    'Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
+                                    'Console.ReadLine()
+                                    ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
+                                    RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
                         End Try
 
 
@@ -348,65 +365,75 @@ Module Program
                     'Count the tables
                     nTables = RobApp.Project.ViewMngr.TableCount
                     'Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
-                    Dim tFilter As New Regex(":([0-9]+)")
-                    For i = 1 To nTables
+        Next j
+        Next i
+        ratioNum.Close()
+        Debug.Print("Member verification finished")
+        End If
 
-                        'Console.WriteLine($"Project is {RobApp.Project}, ViewMngr is {RobApp.Project.ViewMngr} and the Table is {RobApp.Project.ViewMngr.GetTable(i)} and the Recylce is {RobApp.Project.ViewMngr.CurrentLayout}" & vbCrLf)
-                        tf = RobApp.Project.ViewMngr.GetTable(i) 'Read out the tables
-                        FName = tf.Window.Caption
-                        'Console.Write($"Table number {i} is called {FName}" & vbCrLf)
-                        Dim spacepos = InStr(1, FName, " ")
-                        If spacepos <> 0 Then
-                            FName = Left(FName, spacepos) 'remove leading spaces
-                        End If
+        Dim nTables As Long
+        'Count the tables
+        nTables = RobApp.Project.ViewMngr.TableCount
+        'Console.Write($"{Tag} has {nTables} tables" & vbCrLf)
+        Dim tFilter As New Regex(":([0-9]+)")
+        For i = 1 To nTables
 
-                        Dim ntabs = tf.Count
-
-                        For j = 1 To ntabs
-                            tf.Get(j).Window.Activate()
-                            t = tf.Get(j)
-                            tf.Current = j
-                            Dim tabname = tf.GetName(j)
-                            Dim match As Match = tFilter.Match(FName)
-                            If match.Success Then
-                                'Console.WriteLine($"Table duplicate ({FName}) not printed")
-                            Else
-                                If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
-                                    t.Select(I_ST_CASE, "1to7 10to18 21to23 30to33")
-                                    If tabname = "Values" Then
-                                        'DoEvents
-                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
-                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
-                                    End If
-                                ElseIf Trim(FName) = "Loads" Then 'For loads, the table or text edition needs to be used, otherwise it'll likely be empty
-                                    If tabname = "Text edition" Then
-                                        'DoEvents
-                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
-                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
-                                    End If
-                                ElseIf Trim(FName) = "Properties" Then 'Get the properties for each file, so they can be combined later
-                                    If tabname = "Members" Then
-                                        'DoEvents
-                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
-                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
-                                    End If
-                                Else
-                                        If tabname = "Values" Then 'Everything else just values
-                                        'DoEvents
-                                        Fullpath = csvPath + Trim(FName) + Tag + ".csv"
-                                        t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
-                                        Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
-                                    End If
-                                End If
-                            End If
-                        Next j
-                    Next i
-                    RobApp.Project.Close()
-                End If
+            'Console.WriteLine($"Project is {RobApp.Project}, ViewMngr is {RobApp.Project.ViewMngr} and the Table is {RobApp.Project.ViewMngr.GetTable(i)} and the Recylce is {RobApp.Project.ViewMngr.CurrentLayout}" & vbCrLf)
+            tf = RobApp.Project.ViewMngr.GetTable(i) 'Read out the tables
+            FName = tf.Window.Caption
+            'Console.Write($"Table number {i} is called {FName}" & vbCrLf)
+            Dim spacepos = InStr(1, FName, " ")
+            If spacepos <> 0 Then
+                FName = Left(FName, spacepos) 'remove leading spaces
             End If
+
+            Dim ntabs = tf.Count
+
+            For j = 1 To ntabs
+                tf.Get(j).Window.Activate()
+                t = tf.Get(j)
+                tf.Current = j
+                Dim tabname = tf.GetName(j)
+                Dim match As Match = tFilter.Match(FName)
+                If match.Success Then
+                    'Console.WriteLine($"Table duplicate ({FName}) not printed")
+                Else
+                    If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
+                        t.Select(I_ST_CASE, "1to7 10to18 21to23 30to33")
+                        If tabname = "Values" Then
+                            'DoEvents
+                            Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                            t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                            Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                        End If
+                    ElseIf Trim(FName) = "Loads" Then 'For loads, the table or text edition needs to be used, otherwise it'll likely be empty
+                        If tabname = "Text edition" Then
+                            'DoEvents
+                            Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                            t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                            Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                        End If
+                    ElseIf Trim(FName) = "Properties" Then 'Get the properties for each file, so they can be combined later
+                        If tabname = "Members" Then
+                            'DoEvents
+                            Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                            t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                            Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                        End If
+                    Else
+                        If tabname = "Values" Then 'Everything else just values
+                            'DoEvents
+                            Fullpath = csvPath + Trim(FName) + Tag + ".csv"
+                            t.Printable.SaveToFile(Fullpath, IRobotOutputFileFormat.I_OFF_TEXT)
+                            Console.WriteLine($"Writing tab {tabname} of table {FName} for tag {Tag}")
+                        End If
+                    End If
+                End If
+            Next j
+        Next i
+        RobApp.Project.Close()
+        End If
+        End If
 SkipTag:
         Next
 
