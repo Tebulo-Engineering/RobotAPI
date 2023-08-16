@@ -99,23 +99,6 @@ Module Program
             Next
         End If
 
-        'Deleting all the .rtx files
-        Dim filesToDelete As String() = Directory.GetFiles(pathcwd, "*.rtx")
-        Dim DeleteYesNo As Boolean
-        If filesToDelete.Length > 0 Then
-            DeleteYesNo = UserYesNo("Found .rtx files, delete protections? ONLY DO THIS IF NO FILES ARE IN USE")
-        End If
-        If DeleteYesNo Then
-            For Each item In filesToDelete
-                Try
-                    System.IO.File.Delete(item)
-                    Console.WriteLine($"Deleted file: {item}")
-                Catch ex As Exception
-                    Console.WriteLine($"Failed to delete file: {item}. Reason: {ex.Message}")
-                End Try
-            Next
-        End If
-
         'Create a seperate folder for csv files if it does not yet exist
         If Not Directory.Exists(csvPath) Then
             'doesn't exist, so create the folder
@@ -267,7 +250,7 @@ Module Program
                     projPref.Units.Set(IRobotUnitType.I_UT_MOMENT, MU)
                     projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
                     projPref.Units.Refresh()
-                    Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name} and {SU.Name}/{SU.Name2}" & vbCrLf)
+                        Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name} {MU.Name2} and {SU.Name}/{SU.Name2}" & vbCrLf)
                     Console.Write("Set units for " & Tag & vbCrLf)
 
 
@@ -321,7 +304,7 @@ Module Program
                         RDmCalPar = RDmEngine.GetCalcParam
                         RDmCalCnf = RDmEngine.GetCalcConf
 
-                        Dim RdmStream As IRDimStream 'Data stream for ting parameters
+                        Dim RdmStream As IRDimStream 'Data stream for thing parameters
                         RdmStream = RDMServer.Connection.GetStream
                         RdmStream.Clear()
 
@@ -335,10 +318,10 @@ Module Program
 
 
 
+
                         Try
                             For i = 1 To BarCol.Count
-
-
+                                RDmEngine.Solve(Nothing)
                                 BarCol_i = BarCol.Get(i)
                                 RDMAllRes = RDmEngine.Results
                                 RDmDetRes = RDMAllRes.Get(BarCol_i.Number)
@@ -351,13 +334,17 @@ Module Program
                                 If InStr(1, LCase(bbb.ToString), "sls") = 0 Then 'We do not want SLS, that does not work
                                     'Debug.Print "About to write the results of bar: " & BarCol.Get(i).Number & " case: " & CaseCol.Get(j).Name
                                     RDMAllRes = RDmEngine.Results
+                                Debug.Print("Member verification finished")
+                            Next i
+                        Catch
+                            RatioFailMessage = $"Failed to calculate member ver for {Tag}, please run calculation and try again..." & vbCrLf
                                     Console.WriteLine(RatioFailMessage)
                                     'Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
                                     'Console.ReadLine()
                                     ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
                                     RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
                         End Try
-
+                        ratioNum.Close()
 
                     End If
 
@@ -399,7 +386,8 @@ Module Program
                     'Console.WriteLine($"Table duplicate ({FName}) not printed")
                 Else
                     If Trim(FName) = "Reactions" Then 'Or Trim(FName) = "Stresses" Then 'We want the reactions and stresses envelope, it's more compact
-                        t.Select(I_ST_CASE, "1to7 10to18 21to23 30to33")
+                                    'Make sure that the correct simple cases are selected here!!!
+                                    t.Select(I_ST_CASE, SimpleCases)
                         If tabname = "Values" Then
                             'DoEvents
                             Fullpath = csvPath + Trim(FName) + Tag + ".csv"
