@@ -83,203 +83,203 @@ Module Program
 
         'Move to correct folder
         get_proj()
-            'Get the absolute path
-            pathcwd = FileSystem.CurrentDirectory
-            csvPath = pathcwd + "/csv/"
+        'Get the absolute path
+        pathcwd = FileSystem.CurrentDirectory
+        csvPath = pathcwd + "/csv/"
 
 
-            Dim rtdPath
-            rtdPath = pathcwd
-            rtdFiles = Directory.GetFiles(rtdPath, "*.rtd")
+        Dim rtdPath
+        rtdPath = pathcwd
+        rtdFiles = Directory.GetFiles(rtdPath, "*.rtd")
 
-            'Deleting all the .rtx files
-            'rtx files are modification protection. If they're present the script crashes.
-            'If someone is working in a file, do not delete the rtx file
-            'This deletes ALL rtx files, even if you only want to process a few tags, maybe those ones are not even locked
-            Dim filesToDelete As String() = Directory.GetFiles(pathcwd, "*.rtx")
-            Dim DeleteYesNo As Boolean
-            If filesToDelete.Length > 0 Then
-                DeleteYesNo = UserYesNo("Found .rtx files, delete protections? ONLY DO THIS IF NO FILES ARE IN USE")
-            End If
-            If DeleteYesNo Then
-                For Each item In filesToDelete
-                    Try
-                        System.IO.File.Delete(item)
-                        Console.WriteLine($"Deleted file: {item}")
-                    Catch ex As Exception
-                        Console.WriteLine($"Failed to delete file: {item}. Reason: {ex.Message}")
-                    End Try
-                Next
-            End If
+        'Deleting all the .rtx files
+        'rtx files are modification protection. If they're present the script crashes.
+        'If someone is working in a file, do not delete the rtx file
+        'This deletes ALL rtx files, even if you only want to process a few tags, maybe those ones are not even locked
+        Dim filesToDelete As String() = Directory.GetFiles(pathcwd, "*.rtx")
+        Dim DeleteYesNo As Boolean
+        If filesToDelete.Length > 0 Then
+            DeleteYesNo = UserYesNo("Found .rtx files, delete protections? ONLY DO THIS IF NO FILES ARE IN USE")
+        End If
+        If DeleteYesNo Then
+            For Each item In filesToDelete
+                Try
+                    System.IO.File.Delete(item)
+                    Console.WriteLine($"Deleted file: {item}")
+                Catch ex As Exception
+                    Console.WriteLine($"Failed to delete file: {item}. Reason: {ex.Message}")
+                End Try
+            Next
+        End If
 
         'Create a seperate folder for csv files if it does not yet exist
         If Not Directory.Exists(csvPath) Then
-                'doesn't exist, so create the folder
-                Directory.CreateDirectory(csvPath)
-            Else
-                ' Create a folder with a timestamp
-                Dim timestamp As String = DateTime.Now.ToString("yyyyMMdd_HHmmss")
-                Dim oldFolderPathWithTimestamp As String = Path.Combine(csvPath, "archived_on_" & timestamp)
-                Directory.CreateDirectory(oldFolderPathWithTimestamp)
+            'doesn't exist, so create the folder
+            Directory.CreateDirectory(csvPath)
+        Else
+            ' Create a folder with a timestamp
+            Dim timestamp As String = DateTime.Now.ToString("yyyyMMdd_HHmmss")
+            Dim oldFolderPathWithTimestamp As String = Path.Combine(csvPath, "archived_on_" & timestamp)
+            Directory.CreateDirectory(oldFolderPathWithTimestamp)
 
-                ' Get the files in the csvPath folder
-                Dim files As String() = Directory.GetFiles(csvPath)
+            ' Get the files in the csvPath folder
+            Dim files As String() = Directory.GetFiles(csvPath)
 
-                ' Try to move each file to the timestamped folder
-                If Archive Then
-                    Try
-                        For Each filePath As String In files
-                            Dim currentFileName As String = Path.GetFileName(filePath)
-                            Dim destinationPath As String = Path.Combine(oldFolderPathWithTimestamp, currentFileName)
-                            File.Move(filePath, destinationPath)
-                        Next
-                    Catch
-                        Console.WriteLine("Failed to archive old csv files, one might be open. If you contine it might not produce correct results")
-                        Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
-                        Console.ReadLine()
-                    End Try
+            ' Try to move each file to the timestamped folder
+            If Archive Then
+                Try
+                    For Each filePath As String In files
+                        Dim currentFileName As String = Path.GetFileName(filePath)
+                        Dim destinationPath As String = Path.Combine(oldFolderPathWithTimestamp, currentFileName)
+                        File.Move(filePath, destinationPath)
+                    Next
+                Catch
+                    Console.WriteLine("Failed to archive old csv files, one might be open. If you contine it might not produce correct results")
+                    Console.WriteLine("Press Enter to continue, press ctrl + C to abort")
+                    Console.ReadLine()
+                End Try
 
-                End If
             End If
+        End If
 
 
-            Dim TagsList As String() = Array.Empty(Of String)()
-            Dim Tagx As New Regex("\d{4}\-\d{2}") 'regex of 4 numbers "-" and two numbers
-            'Loop through each file
+        Dim TagsList As String() = Array.Empty(Of String)()
+        Dim Tagx As New Regex("\d{4}\-\d{2}") 'regex of 4 numbers "-" and two numbers
+        'Loop through each file
 
-            If Not BatchMove Then
-                'If only certain tags need to be processed, this user input requests and seperates them
-                Dim TagsInput As String
-                Console.WriteLine("Please input the tags you wish to process, seperated by a comma (xxxx-xx)")
-                TagsInput = Console.ReadLine()
-                TagsList = TagsInput.Split(","c)
-                Console.WriteLine("Tags: " & TagsInput.Trim())
-            End If
+        If Not BatchMove Then
+            'If only certain tags need to be processed, this user input requests and seperates them
+            Dim TagsInput As String
+            Console.WriteLine("Please input the tags you wish to process, seperated by a comma (xxxx-xx)")
+            TagsInput = Console.ReadLine()
+            TagsList = TagsInput.Split(","c)
+            Console.WriteLine("Tags: " & TagsInput.Trim())
+        End If
 
 
-            If Not BatchMove Then
-                'If only certain tags need to be processed, this user input requests and seperates them
-                Dim TagsInput As String
-                Console.WriteLine("Please input the tags you wish to process, seperated by a comma (xxxx-xx)")
-                TagsInput = Console.ReadLine()
-                TagsList = TagsInput.Split(","c)
-                Console.WriteLine("Tags: " & TagsInput.Trim())
-            End If
+        If Not BatchMove Then
+            'If only certain tags need to be processed, this user input requests and seperates them
+            Dim TagsInput As String
+            Console.WriteLine("Please input the tags you wish to process, seperated by a comma (xxxx-xx)")
+            TagsInput = Console.ReadLine()
+            TagsList = TagsInput.Split(","c)
+            Console.WriteLine("Tags: " & TagsInput.Trim())
+        End If
 
-            For Each File In rtdFiles 'Where the magic happens, open every robot file and do the whole loop
-                If LCase(Right(File, 4)) = ".rtd" Then
-                    If LCase(Left(File, 5)) <> "robot" Then
-                        Filename = rtdPath + File
-                        If Tagx.IsMatch(File) Then 'Check if a tag can automatically be found
-                            Tags = Tagx.Match(File)
-                            If Tags.Captures.Count = 1 Then
-                                Tag1 = Tags.Captures(0)
-                                Tag = Tag1.Value
-                            ElseIf Tags.Count = 2 Then
-                                Tag1 = Tags(0)
-                                Tag2 = Tags(1)
-                                Tag = Tag1.Value + "+" + Tag2.Value
-                            Else
-                                Tag1 = Tags(0)
-                                Tag2 = Tags(1)
-                                Tag3 = Tags(2)
-                                Tag = Tag1.Value + "+" + Tag2.Value + "+" + Tag3.Value 'Assign a maximum of 3 tags to the file, important to use a plus instead of an underscore, those break latex
-                            End If
+        For Each File In rtdFiles 'Where the magic happens, open every robot file and do the whole loop
+            If LCase(Right(File, 4)) = ".rtd" Then
+                If LCase(Left(File, 5)) <> "robot" Then
+                    Filename = rtdPath + File
+                    If Tagx.IsMatch(File) Then 'Check if a tag can automatically be found
+                        Tags = Tagx.Match(File)
+                        If Tags.Captures.Count = 1 Then
+                            Tag1 = Tags.Captures(0)
+                            Tag = Tag1.Value
+                        ElseIf Tags.Count = 2 Then
+                            Tag1 = Tags(0)
+                            Tag2 = Tags(1)
+                            Tag = Tag1.Value + "+" + Tag2.Value
                         Else
-                            If Automatic = True Then
-                                Tag = File
-                            Else
-                                Console.Write("No tag found! Please input tag for file " + File) 'Give a prompt if no tags can be found
-                                Tag = Console.ReadLine()
-                            End If
+                            Tag1 = Tags(0)
+                            Tag2 = Tags(1)
+                            Tag3 = Tags(2)
+                            Tag = Tag1.Value + "+" + Tag2.Value + "+" + Tag3.Value 'Assign a maximum of 3 tags to the file, important to use a plus instead of an underscore, those break latex
                         End If
-
-                        'The easiest way to select only certain tags.
-                        'The use of GoTo is frowned upon and considered bad programming, sue me
-                        'It skips to the end of the "for each", and therefore goes to the next tag, if it doesn't trigger it continues as normal
-                        If Not BatchMove Then
-                            If Not TagsList.Contains(Tag) Then
-                                GoTo SkipTag
-                            End If
+                    Else
+                        If Automatic = True Then
+                            Tag = File
+                        Else
+                            Console.Write("No tag found! Please input tag for file " + File) 'Give a prompt if no tags can be found
+                            Tag = Console.ReadLine()
                         End If
+                    End If
 
-                        Console.Write("Opening " & Tag & vbCrLf)
-                        RobApp.Project.Open(File)
-
-                        RobApp.Project.ViewMngr.CurrentLayout = IRobotLayoutId.I_LI_MODEL_GEOMETRY
-                        'Run the calculation if neccesary
-                        If (RobApp.Project.Structure.Results.Available = False) Then
-                            Try
-                                Console.WriteLine($"Calculating {Tag}")
-                                RobApp.Project.CalcEngine.Calculate()
-                                RobApp.Project.Save()
-                            Catch
-                                RatioFailMessage = $"Failed to calculate results for {Tag}, please run calculation and try again..." & vbCrLf
-                                Console.WriteLine(RatioFailMessage)
-                                Console.WriteLine($"Skipping {Tag}...")
-                                ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
-                                RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
-                                GoTo SkipTag
-                            End Try
-
+                    'The easiest way to select only certain tags.
+                    'The use of GoTo is frowned upon and considered bad programming, sue me
+                    'It skips to the end of the "for each", and therefore goes to the next tag, if it doesn't trigger it continues as normal
+                    If Not BatchMove Then
+                        If Not TagsList.Contains(Tag) Then
+                            GoTo SkipTag
                         End If
+                    End If
 
-                        ' the forces to kN
-                        Dim FU As RobotOM.RobotUnitData
-                        FU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_FORCE)
-                        Console.Write($"Before changing units, Force is in {FU.Name}" & vbCrLf)
-                        FU.E = False
-                        FU.Name = "kN"
-                        FU.Precision = 2
+                    Console.Write("Opening " & Tag & vbCrLf)
+                    RobApp.Project.Open(File)
 
-                        ' the stresses to MPa
-                        Dim SU As RobotOM.RobotUnitComplexData
-                        SU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRESS)
-                        Console.Write($"Before changing units, Stress is {SU.Name} and {SU.Name2}" & vbCrLf)
-                        SU.E = False
-                        SU.Name = "MPa"
-                        'SU.Name2 = "mm2"
-                        SU.Precision = 2
+                    RobApp.Project.ViewMngr.CurrentLayout = IRobotLayoutId.I_LI_MODEL_GEOMETRY
+                    'Run the calculation if neccesary
+                    If (RobApp.Project.Structure.Results.Available = False) Then
+                        Try
+                            Console.WriteLine($"Calculating {Tag}")
+                            RobApp.Project.CalcEngine.Calculate()
+                            RobApp.Project.Save()
+                        Catch
+                            RatioFailMessage = $"Failed to calculate results for {Tag}, please run calculation and try again..." & vbCrLf
+                            Console.WriteLine(RatioFailMessage)
+                            Console.WriteLine($"Skipping {Tag}...")
+                            ReDim Preserve RatioFailLog(RatioFailLog.Length) 'Increase size of array by 1
+                            RatioFailLog(RatioFailLog.Length - 1) = RatioFailMessage 'Add latest fail message to the list
+                            GoTo SkipTag
+                        End Try
 
-                        ' the moments to kNm
-                        Dim MU As RobotOM.RobotUnitComplexData
-                        MU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_MOMENT)
-                        Console.Write($"Before changing units, Moment is {MU.Name} and {MU.Name2}" & vbCrLf)
-                        MU.E = False
-                        MU.Name = "kN"
-                        MU.Name2 = "m"
-                        MU.Precision = 2
+                    End If
 
-                        ' the dimensions to mm
-                        Dim DU As RobotOM.RobotUnitData
-                        DU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRUCTURE_DIMENSION)
-                        DU.E = False
-                        DU.Name = "mm"
-                        DU.Precision = 2
+                    ' the forces to kN
+                    Dim FU As RobotOM.RobotUnitData
+                    FU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_FORCE)
+                    Console.Write($"Before changing units, Force is in {FU.Name}" & vbCrLf)
+                    FU.E = False
+                    FU.Name = "kN"
+                    FU.Precision = 2
 
-                        'Actually  the variables and refresh units
-                        projPref.Units.Set(IRobotUnitType.I_UT_STRUCTURE_DIMENSION, DU)
-                        projPref.Units.Set(IRobotUnitType.I_UT_FORCE, FU)
-                        projPref.Units.Set(IRobotUnitType.I_UT_MOMENT, MU)
-                        projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
-                        projPref.Units.Refresh()
-                        Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name} {MU.Name2} and {SU.Name}/{SU.Name2}" & vbCrLf)
-                        Console.Write("Set units for " & Tag & vbCrLf)
+                    ' the stresses to MPa
+                    Dim SU As RobotOM.RobotUnitComplexData
+                    SU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRESS)
+                    Console.Write($"Before changing units, Stress is {SU.Name} and {SU.Name2}" & vbCrLf)
+                    SU.E = False
+                    SU.Name = "MPa"
+                    'SU.Name2 = "mm2"
+                    SU.Precision = 2
+
+                    ' the moments to kNm
+                    Dim MU As RobotOM.RobotUnitComplexData
+                    MU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_MOMENT)
+                    Console.Write($"Before changing units, Moment is {MU.Name} and {MU.Name2}" & vbCrLf)
+                    MU.E = False
+                    MU.Name = "kN"
+                    MU.Name2 = "m"
+                    MU.Precision = 2
+
+                    ' the dimensions to mm
+                    Dim DU As RobotOM.RobotUnitData
+                    DU = projPref.Units.Get(RobotOM.IRobotUnitType.I_UT_STRUCTURE_DIMENSION)
+                    DU.E = False
+                    DU.Name = "mm"
+                    DU.Precision = 2
+
+                    'Actually  the variables and refresh units
+                    projPref.Units.Set(IRobotUnitType.I_UT_STRUCTURE_DIMENSION, DU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_FORCE, FU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_MOMENT, MU)
+                    projPref.Units.Set(IRobotUnitType.I_UT_STRESS, SU)
+                    projPref.Units.Refresh()
+                    Console.Write($"The units are: {DU.Name}, {FU.Name}, {MU.Name} {MU.Name2} and {SU.Name}/{SU.Name2}" & vbCrLf)
+                    Console.Write("Set units for " & Tag & vbCrLf)
 
 
 
-                        Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
-                        'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
-                        t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_BARS, IRobotTableDataType.I_TDT_VALUES)
-                        t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_NODES, IRobotTableDataType.I_TDT_VALUES)
-                        t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_LOADS, IRobotTableDataType.I_TDT_VALUES)
-                        t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_REACTIONS, IRobotTableDataType.I_TDT_VALUES)
-                        t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_STRESSES, IRobotTableDataType.I_TDT_VALUES)
-                        t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_PROPERTIES, IRobotTableDataType.I_TDT_MEMBERS)
-                        t.AddColumn(179)
-                        t.AddColumn(180)
-                        t.AddColumn(182)
-                        Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
+                    Console.Write($"Before creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
+                    'Make sure the required tables are present, if these tables are already open, then duplicates are made, this doesn't matter
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_BARS, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_NODES, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_LOADS, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_REACTIONS, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_STRESSES, IRobotTableDataType.I_TDT_VALUES)
+                    t = RobApp.Project.ViewMngr.CreateTable(IRobotTableType.I_TT_PROPERTIES, IRobotTableDataType.I_TDT_MEMBERS)
+                    t.AddColumn(179)
+                    t.AddColumn(180)
+                    t.AddColumn(182)
+                    Console.Write($"After creating tables, there are {RobApp.Project.ViewMngr.TableCount} tables" & vbCrLf)
                     'the columns added above are for the stresses, no idea how to find out which are which, good luck
 
                     'Dim ViewMngr As IRobotViewMngr
@@ -326,6 +326,7 @@ Module Program
 
                         RdmStream.WriteText("all") ' member(s) selection
                         'Dim v = RDmCalPar.GetObjsList(IRDimCalcParamVerifType.I_DCPVT_MEMBERS_VERIF) 'members verification
+
 
 
 
